@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Cine y TV - Fusion Style</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Portal Cine y TV</h1>
+
+        <div class="controls">
+            <button id="btnPeliculas">LISTA DE PELÍCULAS</button>
+            <button id="btnSeries">LISTA DE SERIES</button>
+        </div>
+
+        <div id="tableSection" class="hidden">
+            <h2 id="tableTitle">Catálogo</h2>
+            <table id="catalogo">
+                <thead>
+                    <tr id="headerRow"></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="forms-container">
+            <div>
+                <h2>Nueva Película</h2>
+                <form id="formPelicula">
+                    <input type="text" id="nombrePelicula" placeholder="Nombre" required>
+                    <input type="text" id="directorPelicula" placeholder="Director" required>
+                    <input type="number" id="anioPelicula" placeholder="Año" required>
+                    <button type="submit">AGREGAR PELÍCULA</button>
+                </form>
+            </div>
+            <div>
+                <h2>Nueva Serie</h2>
+                <form id="formSerie">
+                    <input type="text" id="nombreSerie" placeholder="Nombre" required>
+                    <input type="number" id="anioSerie" placeholder="Año" required>
+                    <input type="number" id="temporadasSerie" placeholder="Temporadas" required>
+                    <button type="submit">AGREGAR SERIE</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/catalogo';
+        let currentItems = [];
+        let currentType = '';
+
+        const fetchData = async (tipo) => {
+            try {
+                const response = await fetch(`${API_URL}?tipo=${tipo}`);
+                if (!response.ok) throw new Error(`Error: ${response.status}`);
+                const data = await response.json();
+                renderTable(data, tipo);
+            } catch (error) {
+                alert(`Error al cargar datos: ${error.message}`);
+            }
+        };
+
+        const renderTable = (items, type) => {
+            currentItems = items;
+            currentType = type;
+            const tableSection = document.getElementById('tableSection');
+            const tableTitle = document.getElementById('tableTitle');
+            const headerRow = document.getElementById('headerRow');
+
+            tableSection.classList.remove('hidden');
+            tableTitle.textContent = type === 'peliculas' ? 'Películas' : 'Series';
+
+            headerRow.innerHTML = `
+                <th onclick="sortData('nombre')">Nombre</th>
+                <th onclick="sortData('anioEstreno')">Año</th>
+                ${type === 'peliculas' ? '<th onclick="sortData(\'director\')">Director</th>' : '<th onclick="sortData(\'numeroTemporadas\')">Temporadas</th>'}
+                <th>Acciones</th>
+            `;
+
+            displayRows(items, type);
+        };
+
+        const displayRows = (items, type) => {
+            const tbody = document.querySelector('#catalogo tbody');
+            tbody.innerHTML = '';
+
+            items.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.nombre}</td>
+                    <td>${item.anioEstreno}</td>
+                    <td>${type === 'peliculas' ? item.director : item.numeroTemporadas}</td>
+                    <td><button class="delete-btn" onclick="deleteItem('${type === 'peliculas' ? 'pelicula' : 'serie'}', '${item.nombre}')">Eliminar</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        };
+
+        const sortData = (key) => {
+            currentItems.sort((a, b) => a[key] < b[key] ? -1 : a[key] > b[key] ? 1 : 0);
+            displayRows(currentItems, currentType);
+        };
+
+        document.getElementById('btnPeliculas').addEventListener('click', () => fetchData('peliculas'));
+        document.getElementById('btnSeries').addEventListener('click', () => fetchData('series'));
+
+        const deleteItem = async (tipo, nombre) => {
+            if (confirm(`¿Eliminar ${nombre}?`)) {
+                try {
+                    await fetch(`${API_URL}/${tipo}/${encodeURIComponent(nombre)}`, { method: 'DELETE' });
+                    fetchData(tipo === 'pelicula' ? 'peliculas' : 'series');
+                } catch (error) {
+                    alert('Error al eliminar');
+                }
+            }
+        };
+
+        document.getElementById('formPelicula').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const body = {
+                tipo: 'pelicula',
+                nombre: document.getElementById('nombrePelicula').value,
+                director: document.getElementById('directorPelicula').value,
+                anioEstreno: document.getElementById('anioPelicula').value
+            };
+            await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            document.getElementById('formPelicula').reset();
+            fetchData('peliculas');
+        });
+
+        document.getElementById('formSerie').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const body = {
+                tipo: 'serie',
+                nombre: document.getElementById('nombreSerie').value,
+                anioEstreno: document.getElementById('anioSerie').value,
+                numeroTemporadas: document.getElementById('temporadasSerie').value
+            };
+            await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            document.getElementById('formSerie').reset();
+            fetchData('series');
+        });
+    </script>
+</body>
+</html>
